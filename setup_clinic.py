@@ -6,11 +6,13 @@
 import pathlib, re
 
 FILES = r'''
-=== .env
-DATABASE_URL=postgresql+psycopg2://clinic:clinic@db:5432/clinic
-SECRET_KEY=غيّرها-بنص-عشوائي-طويل
+=== .env.example
+# غيّر القيم التي تحتوي على CHANGE_ME قبل التشغيل.
+POSTGRES_PASSWORD=CHANGE_ME_DB_PASSWORD
+DATABASE_URL=postgresql+psycopg2://clinic:CHANGE_ME_DB_PASSWORD@db:5432/clinic
+SECRET_KEY=CHANGE_ME_USE_A_UNIQUE_RANDOM_SECRET_AT_LEAST_32_CHARACTERS
 ADMIN_EMAIL=doctor@clinic.local
-ADMIN_PASSWORD=غيّرها-الآن
+ADMIN_PASSWORD=CHANGE_ME_USE_A_UNIQUE_PASSWORD_AT_LEAST_12_CHARS
 CORS_ORIGINS=http://localhost:5173,http://localhost:8080
 CLINIC_NAME=عيادة الابتسامة
 CLINIC_ADDRESS=
@@ -35,7 +37,7 @@ TWILIO_FROM=whatsapp:+14155238886
 React + TypeScript (واجهة) · FastAPI (خادم) · PostgreSQL (قاعدة بيانات)
 
 ## التشغيل المحلي
-1. `cp .env.example .env` ثم عدّل كلمة مرور الطبيب والمفتاح السري وبيانات العيادة.
+1. `cp .env.example .env` ثم استبدل جميع القيم `CHANGE_ME`؛ يجب أن تتطابق `POSTGRES_PASSWORD` مع كلمة المرور داخل `DATABASE_URL`، وأن يكون `SECRET_KEY` عشوائيًا وفريدًا (32 حرفًا على الأقل) وكلمة مرور الطبيب 12 حرفًا على الأقل. استخدم كلمة مرور قاعدة بيانات من أحرف وأرقام فقط أو شفّر الرموز الخاصة داخل `DATABASE_URL`.
 2. `docker compose up --build`
 3. افتح http://localhost:8080 (الموقع) و http://localhost:8080/login (الموظفون). توثيق API: شغّل الخلفية وافتح `/docs`.
 
@@ -189,7 +191,12 @@ def patch_appt(aid: int, b: ApptPatch, bg: BackgroundTasks,
     a = db.get(Appointment, aid)
     if not a: raise HTTPException(404)
     if b.starts_at:
-        a.starts_at = b.starts_at if b.starts_at.tzinfo else b.starts_at.replace(tzinfo=TZ); a.reminder_sent = False
+        candidate = b.starts_at if b.starts_at.tzinfo else b.starts_at.replace(tzinfo=TZ)
+        free = {slot.astimezone(UTC) for slot in day_slots(db, candidate.astimezone(TZ).date(), exclude_appointment_id=a.id)}
+        if candidate.astimezone(UTC) not in free:
+            raise HTTPException(409, "slot_unavailable")
+        a.starts_at = candidate
+        a.reminder_sent = False
     if b.notes is not None: a.notes = b.notes
     if b.status and b.status != a.status:
         a.status = b.status
@@ -244,13 +251,35 @@ def add_user(b: UserIn, db: Session = Depends(get_db), _: User = Depends(doctor_
     db.add(User(email=b.email, name=b.name, role=b.role, password_hash=hash_pw(b.password))); db.commit()
     return {"ok": True}
 === backend/app/config.py
+from pydantic import field_validator
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
-    database_url: str = "postgresql+psycopg2://clinic:clinic@db:5432/clinic"
-    secret_key: str = "change-me"
+    database_url: str
+    secret_key: str
     admin_email: str = "doctor@clinic.local"
-    admin_password: str = "ChangeMe123!"
+    admin_password: str
+
+    @field_validator("database_url")
+    @classmethod
+    def validate_database_url(cls, value: str) -> str:
+        if "CHANGE_ME" in value.upper() or "clinic:clinic@" in value.lower():
+            raise ValueError("Set a unique DATABASE_URL in .env before starting the server")
+        return value
+
+    @field_validator("secret_key")
+    @classmethod
+    def validate_secret_key(cls, value: str) -> str:
+        if len(value) < 32 or "CHANGE_ME" in value.upper():
+            raise ValueError("SECRET_KEY must be unique and at least 32 characters")
+        return value
+
+    @field_validator("admin_password")
+    @classmethod
+    def validate_admin_password(cls, value: str) -> str:
+        if len(value) < 12 or "CHANGE_ME" in value.upper() or value == "ChangeMe123!":
+            raise ValueError("ADMIN_PASSWORD must be unique and at least 12 characters")
+        return value
     cors_origins: str = "http://localhost:5173"
     clinic_name: str = "عيادة الابتسامة"
     clinic_address: str = ""
@@ -467,17 +496,17 @@ from .models import Appointment
 TZ = ZoneInfo(settings.timezone)
 UTC = timezone.utc
 
-def day_slots(db: Session, d: date) -> list[datetime]:
-    """المواعيد الحرة ليوم معيّن (بتوقيت العيادة)."""
+def day_slots(db: Session, d: date, exclude_appointment_id: int | None = None) -> list[datetime]:
+    """المواعيد الحرة ليوم معيّن (بتوقيت العيادة)، مع إمكانية استثناء الموعد الجاري تعديله."""
     if str(d.weekday()) in settings.closed_weekdays.split(","): return []
     cur = datetime.combine(d, time(settings.open_hour), TZ)
     end = datetime.combine(d, time(settings.close_hour), TZ)
-    taken = Counter(
-        a.astimezone(UTC) for a in db.scalars(
-            select(Appointment.starts_at).where(
-                Appointment.starts_at >= cur, Appointment.starts_at < end,
-                Appointment.status != "cancelled"))
-    )
+    query = select(Appointment.starts_at).where(
+        Appointment.starts_at >= cur, Appointment.starts_at < end,
+        Appointment.status != "cancelled")
+    if exclude_appointment_id is not None:
+        query = query.where(Appointment.id != exclude_appointment_id)
+    taken = Counter(a.astimezone(UTC) for a in db.scalars(query))
     out, step, now = [], timedelta(minutes=settings.slot_minutes), datetime.now(UTC)
     while cur < end:
         if cur > now and taken[cur.astimezone(UTC)] < settings.chairs: out.append(cur)
@@ -501,7 +530,10 @@ tzdata
 services:
   db:
     image: postgres:16-alpine
-    environment: {POSTGRES_USER: clinic, POSTGRES_PASSWORD: clinic, POSTGRES_DB: clinic}
+    environment:
+      POSTGRES_USER: clinic
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: clinic
     volumes: [pgdata:/var/lib/postgresql/data]
     healthcheck: {test: ["CMD-SHELL","pg_isready -U clinic"], interval: 5s, retries: 10}
   backend:
