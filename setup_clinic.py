@@ -199,6 +199,10 @@ def patch_appt(aid: int, b: ApptPatch, bg: BackgroundTasks,
         a.reminder_sent = False
     if b.notes is not None: a.notes = b.notes
     if b.status and b.status != a.status:
+        if a.status == "cancelled" and b.status in ("pending", "confirmed"):
+            free = {slot.astimezone(UTC) for slot in day_slots(db, a.starts_at.astimezone(TZ).date(), exclude_appointment_id=a.id)}
+            if a.starts_at.astimezone(UTC) not in free:
+                raise HTTPException(409, "slot_unavailable")
         a.status = b.status
         if b.status == "confirmed": bg.add_task(notify, a.patient, a, "confirmed")
     db.commit()
