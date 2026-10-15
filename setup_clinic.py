@@ -633,7 +633,7 @@ export default function ChatWidget() {
 
   if (!open) return <button className="chat-fab" onClick={() => setOpen(true)} aria-label={t("chat")}>💬 {t("chat")}</button>;
   return (<section className="chat" aria-label={t("chat")}>
-    <header><b>{t("chat")}</b><button onClick={() => setOpen(false)} aria-label="close">✕</button></header>
+    <header><b>{t("chat")}</b><button onClick={() => setOpen(false)} aria-label={t("close")}>✕</button></header>
     <div className="log" aria-live="polite">
       <p className="mut">{t("chatHint")}</p>
       {msgs.map((m, i) => <p key={i} className={m.role}>{m.content}</p>)}<div ref={end} />
@@ -647,7 +647,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 
 export type Lang = "ar" | "fr" | "en";
 const D: Record<Lang, Record<string, string>> = {
-ar: { h1: "ابتسامة صحية تبدأ بزيارة واحدة", sub: "رعاية أسنان للكبار والأطفال، بأجهزة حديثة وأسعار واضحة.",
+ar: { close: "إغلاق", emailShort: "البريد الإلكتروني", h1: "ابتسامة صحية تبدأ بزيارة واحدة", sub: "رعاية أسنان للكبار والأطفال، بأجهزة حديثة وأسعار واضحة.",
   book: "احجز موعدًا", name: "الاسم", phone: "رقم الهاتف", email: "البريد (للتذكير، اختياري)", service: "الخدمة",
   date: "التاريخ", time: "الوقت", noSlots: "لا توجد مواعيد في هذا اليوم، جرّب يومًا آخر.", send: "احجز الآن",
   ok: "تم استلام طلبك. سنؤكد الموعد قريبًا.", taken: "هذا الموعد حُجز للتو، اختر وقتًا آخر.", err: "تعذّر الحجز، حاول مجددًا.",
@@ -659,7 +659,7 @@ ar: { h1: "ابتسامة صحية تبدأ بزيارة واحدة", sub: "رع
   pending: "بانتظار التأكيد", confirmed: "مؤكد", cancelled: "ملغى", done: "تم", confirm: "تأكيد", cancel: "إلغاء", finish: "إنهاء",
   s_today: "مواعيد اليوم", s_pending: "بانتظار التأكيد", s_patients: "المرضى", empty: "لا شيء هنا بعد.",
   chat: "اسأل المساعد", chatHint: "اسألني عن خدماتنا أو العناية بالأسنان. لا أستطيع التشخيص.", ask: "اكتب سؤالك", sendMsg: "إرسال" },
-fr: { h1: "Un sourire sain commence par une visite", sub: "Soins dentaires pour adultes et enfants, équipement moderne, tarifs clairs.",
+fr: { close: "Fermer", emailShort: "E-mail", h1: "Un sourire sain commence par une visite", sub: "Soins dentaires pour adultes et enfants, équipement moderne, tarifs clairs.",
   book: "Prendre rendez-vous", name: "Nom", phone: "Téléphone", email: "E-mail (rappel, facultatif)", service: "Soin",
   date: "Date", time: "Heure", noSlots: "Aucun créneau ce jour-là, essayez un autre jour.", send: "Réserver",
   ok: "Demande reçue. Nous confirmerons bientôt.", taken: "Ce créneau vient d'être pris, choisissez-en un autre.", err: "Réservation impossible, réessayez.",
@@ -671,7 +671,7 @@ fr: { h1: "Un sourire sain commence par une visite", sub: "Soins dentaires pour 
   pending: "À confirmer", confirmed: "Confirmé", cancelled: "Annulé", done: "Terminé", confirm: "Confirmer", cancel: "Annuler", finish: "Terminer",
   s_today: "RDV du jour", s_pending: "À confirmer", s_patients: "Patients", empty: "Rien ici pour l'instant.",
   chat: "Poser une question", chatHint: "Posez-moi vos questions sur nos soins. Je ne peux pas poser de diagnostic.", ask: "Votre question", sendMsg: "Envoyer" },
-en: { h1: "A healthy smile starts with one visit", sub: "Dental care for adults and children, modern equipment, clear prices.",
+en: { close: "Close", emailShort: "Email", h1: "A healthy smile starts with one visit", sub: "Dental care for adults and children, modern equipment, clear prices.",
   book: "Book an appointment", name: "Name", phone: "Phone number", email: "Email (for reminders, optional)", service: "Service",
   date: "Date", time: "Time", noSlots: "No openings that day, try another.", send: "Book now",
   ok: "Request received. We'll confirm shortly.", taken: "That slot was just taken, pick another time.", err: "Booking failed, please try again.",
@@ -700,7 +700,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
 export function LangSwitch() {
   const { lang, setLang } = useI18n();
-  return (<div className="lang" role="group" aria-label="Language">
+  return (<div className="lang" role="group" aria-label={lang === "ar" ? "اللغة" : lang === "fr" ? "Langue" : "Language"}>
     {(["ar", "fr", "en"] as Lang[]).map(l =>
       <button key={l} className={l === lang ? "on" : ""} onClick={() => setLang(l)}>{l.toUpperCase()}</button>)}
   </div>);
@@ -753,7 +753,7 @@ export default function Dashboard() {
         <button role="tab" aria-selected={tab === "a"} onClick={() => setTab("a")}>{t("appts")}</button>
         <button role="tab" aria-selected={tab === "p"} onClick={() => setTab("p")}>{t("patients")}</button></div>
       {tab === "a" ? (<>
-        <input type="date" value={date} onChange={e => setDate(e.target.value)} className="datepick" />
+        <input type="date" aria-label={t("date")} value={date} onChange={e => setDate(e.target.value)} className="datepick" />
         {rows.length === 0 && <p className="mut">{t("empty")}</p>}
         {rows.map(a => (<div className="item" key={a.id}>
           <div><b>{a.starts_at.slice(11, 16)}</b> · {a.patient}<br />
@@ -784,7 +784,7 @@ function Patients({ onChange }: { onChange: () => void }) {
     <form className="inline" onSubmit={add}>
       <input placeholder={t("name")} value={n.name} onChange={e => setN({ ...n, name: e.target.value })} required minLength={2} />
       <input placeholder={t("phone")} value={n.phone} onChange={e => setN({ ...n, phone: e.target.value })} required minLength={6} dir="ltr" />
-      <input placeholder="Email" type="email" value={n.email} onChange={e => setN({ ...n, email: e.target.value })} dir="ltr" />
+      <input placeholder={t("emailShort")} type="email" value={n.email} onChange={e => setN({ ...n, email: e.target.value })} dir="ltr" />
       <button className="btn main">{t("add")}</button></form>
     {list.map(p => <div className="item" key={p.id}><b>{p.name}</b>
       <span className="mut" dir="ltr">{p.phone}{p.email ? ` · ${p.email}` : ""}</span></div>)}
@@ -885,7 +885,7 @@ export default function Login() {
   }
   return (<div className="center"><form className="card" onSubmit={submit}>
     <LangSwitch /><h2>{t("login")}</h2>
-    <label>Email<input type="email" value={email} onChange={e => setEmail(e.target.value)} required dir="ltr" /></label>
+    <label>{t("emailShort")}<input type="email" value={email} onChange={e => setEmail(e.target.value)} required dir="ltr" /></label>
     <label>{t("password")}<input type="password" value={pw} onChange={e => setPw(e.target.value)} required dir="ltr" /></label>
     <button className="btn main">{t("login")}</button>
     {err && <p role="alert" className="note">{err}</p>}
