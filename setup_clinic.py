@@ -51,7 +51,7 @@ React + TypeScript (واجهة) · FastAPI (خادم) · PostgreSQL (قاعدة 
 ## النشر
 GitHub Pages لا يشغّل خادمًا، لذا:
 - **الأسهل:** Render أو Railway أو Fly.io: خدمة Docker للمجلد `backend` + قاعدة PostgreSQL مُدارة (ضع رابطها في `DATABASE_URL`)،
-  والواجهة كموقع ثابت (`npm run build`) على Netlify/Vercel/Render مع `VITE_API_URL=https://رابط-الخلفية`، وأضف رابط الواجهة إلى `CORS_ORIGINS`.
+  والواجهة كموقع ثابت (`npm run build`) على Netlify/Vercel/Render مع `VITE_API_URL=https://رابط-الخلفية`، واضبط في الخادم `SECRET_KEY` عشوائيًا (32 حرفًا على الأقل) و`ADMIN_PASSWORD` فريدًا (12 حرفًا على الأقل) و`ADMIN_EMAIL`، وأضف رابط الواجهة إلى `CORS_ORIGINS`.
 - **VPS:** `docker compose up -d` خلف Caddy أو Nginx مع HTTPS.
 
 ## قبل الاستعمال الفعلي في عيادة
@@ -293,7 +293,7 @@ class Settings(BaseSettings):
     closed_weekdays: str = "4"  # Python: Mon=0 ... Fri=4
     chairs: int = 1             # عدد المواعيد المتزامنة المسموحة
     anthropic_api_key: str = ""
-    anthropic_model: str = "claude-sonnet-5-5"
+    anthropic_model: str = "claude-sonnet-5"
     smtp_host: str = ""
     smtp_port: int = 587
     smtp_user: str = ""
