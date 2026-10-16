@@ -19,7 +19,8 @@ CLINIC_ADDRESS=
 CLINIC_PHONE=
 HOURS_TEXT=السبت – الخميس، 09:00 – 18:00
 TIMEZONE=Africa/Algiers
-DEFAULT_COUNTRY_CODE=+213
+DEFAULT_COUNTRY_CODE=
+# Set the clinic's international calling code, or store phone numbers in full international format.
 # المساعد الذكي (اختياري)
 ANTHROPIC_API_KEY=
 # التذكيرات (اختياري): بريد SMTP و/أو واتساب عبر Twilio
@@ -30,7 +31,8 @@ SMTP_PASSWORD=
 SMTP_FROM=
 TWILIO_SID=
 TWILIO_TOKEN=
-TWILIO_FROM=whatsapp:+14155238886
+TWILIO_FROM=
+# Set the WhatsApp-enabled sender approved for the configured messaging account.
 === README.md
 # نظام عيادة الأسنان
 
@@ -290,7 +292,7 @@ class Settings(BaseSettings):
     clinic_phone: str = ""
     hours_text: str = "السبت – الخميس، 09:00 – 18:00"
     timezone: str = "Africa/Algiers"
-    default_country_code: str = "+213"
+    default_country_code: str = ""
     open_hour: int = 9
     close_hour: int = 18
     slot_minutes: int = 30
@@ -305,7 +307,7 @@ class Settings(BaseSettings):
     smtp_from: str = ""
     twilio_sid: str = ""
     twilio_token: str = ""
-    twilio_from: str = "whatsapp:+14155238886"
+    twilio_from: str = ""
 
 settings = Settings()
 SERVICES = ["cleaning", "whitening", "implants", "orthodontics", "pediatric", "emergency"]
@@ -420,11 +422,14 @@ MSG = {
 def e164(phone: str) -> str:
     p = "".join(c for c in phone if c.isdigit() or c == "+")
     if p.startswith("00"): return "+" + p[2:]
+    if p.startswith("+"): return p
+    if not settings.default_country_code:
+        raise ValueError("Configure DEFAULT_COUNTRY_CODE or use full international phone numbers")
     if p.startswith("0"): return settings.default_country_code + p[1:]
-    return p if p.startswith("+") else settings.default_country_code + p
+    return settings.default_country_code + p
 
 def send(p: Patient, text: str):
-    if settings.twilio_sid:
+    if settings.twilio_sid and settings.twilio_token and settings.twilio_from:
         try:
             httpx.post(f"https://api.twilio.com/2010-04-01/Accounts/{settings.twilio_sid}/Messages.json",
                 auth=(settings.twilio_sid, settings.twilio_token), timeout=10,
